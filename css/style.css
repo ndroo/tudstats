@@ -91,6 +91,20 @@ body {
 .range-note { color: var(--muted); font-size: 12.5px; margin-left: auto; }
 @media (max-width: 700px) { .range-note { flex-basis: 100%; margin-left: 2px; } }
 
+/* ---------- notice ---------- */
+
+.notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--v-top10);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+.notice strong { color: var(--ink); }
+
 /* ---------- KPI row ---------- */
 
 .kpis {

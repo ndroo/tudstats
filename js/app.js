@@ -1,7 +1,7 @@
 import {
   el, svg, fmtInt, fmtDay, chartCard, lineChart, stackedColumns, hBars, sparkline,
   showTooltip, hideTooltip,
-} from './charts.js';
+} from './charts.js?v=2';
 
 const PLAYERS = [
   { name: 'ndroo', color: '#3987e5' },
@@ -82,21 +82,37 @@ const state = {
 
 let ALL = [];
 let META = {};
+let LIFETIME = null;
 const imageCache = new Map();
 
 async function boot() {
   const bust = `?v=${Date.now()}`;
-  const [matches, meta] = await Promise.all([
+  const [matches, meta, lifetime] = await Promise.all([
     fetch(`data/matches.json${bust}`).then((r) => r.json()),
     fetch(`data/meta.json${bust}`).then((r) => r.json()).catch(() => ({})),
+    fetch(`data/lifetime.json${bust}`).then((r) => r.json()).catch(() => null),
   ]);
   META = meta;
+  LIFETIME = lifetime;
   ALL = matches
     .map((m) => ({ ...m, dateObj: new Date(m.date), isBR: m.matchType !== 'arcade' && !/tdm|teamdeathmatch/i.test(m.mode) }))
     .sort((a, b) => a.dateObj - b.dateObj);
   renderHeader();
   renderFilters();
+  renderNotice();
   render();
+}
+
+// PUBG's API only exposes ~14 days of matches, so per-match history starts the
+// day tracking began — worth saying loudly, or wide date ranges look broken.
+function renderNotice() {
+  const holder = document.getElementById('notice');
+  if (!holder || !ALL.length) return;
+  const first = ALL[0].dateObj;
+  holder.replaceChildren(el('div', { class: 'notice' }, [
+    el('strong', {}, `Match history starts ${first.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. `),
+    'PUBG’s API only exposes the last 14 days of matches, so TUD STATS accumulates history from the day tracking began — date ranges wider than what’s been collected will show the same games for now. Career totals below cover your whole PUBG career.',
+  ]));
 }
 
 const RANGES = [
@@ -104,7 +120,7 @@ const RANGES = [
   { key: '30d', label: '30d', days: 30 },
   { key: '90d', label: '90d', days: 90 },
   { key: 'year', label: 'This year', days: null },
-  { key: 'all', label: 'All time', days: null },
+  { key: 'all', label: 'All tracked', days: null },
 ];
 
 function rangeBounds(key) {
@@ -359,6 +375,49 @@ function renderPlayers(slice, prev) {
     ]);
   });
   return el('section', { class: 'players' }, cards);
+}
+
+// ---------- career (lifetime) ----------
+
+function careerTotals(modes) {
+  const t = { rounds: 0, wins: 0, top10s: 0, kills: 0, losses: 0, damage: 0, headshots: 0, longest: 0, mostKills: 0 };
+  for (const s of Object.values(modes)) {
+    t.rounds += s.roundsPlayed; t.wins += s.wins; t.top10s += s.top10s;
+    t.kills += s.kills; t.losses += s.losses; t.damage += s.damageDealt;
+    t.headshots += s.headshotKills;
+    t.longest = Math.max(t.longest, s.longestKill);
+    t.mostKills = Math.max(t.mostKills, s.roundMostKills);
+  }
+  return t;
+}
+
+function renderCareer() {
+  if (!LIFETIME?.players) return null;
+  const card = el('div', { class: 'card' });
+  card.append(
+    el('h2', {}, 'Career totals'),
+    el('div', { class: 'desc' }, 'entire PUBG career from the official API — not affected by the filters above')
+  );
+  card.append(el('div', { class: 'table-scroll' }, el('table', { class: 'data' }, [
+    el('thead', {}, el('tr', {}, ['Player', 'Rounds', 'Wins', 'Win %', 'Top-10 %', 'Kills', 'K/D', 'Avg damage', 'HS %', 'Longest kill', 'Most kills'].map((h) => el('th', {}, h)))),
+    el('tbody', {}, PLAYERS.filter((p) => LIFETIME.players[p.name]).map((p) => {
+      const t = careerTotals(LIFETIME.players[p.name]);
+      return el('tr', {}, [
+        el('td', { class: 'strong' }, [el('span', { class: 'dot', style: `background:${p.color};margin-right:7px` }), p.name]),
+        el('td', {}, fmtInt(t.rounds)),
+        el('td', {}, `🍗 ${fmtInt(t.wins)}`),
+        el('td', {}, fmtPct(pct(t.wins, t.rounds))),
+        el('td', {}, fmtPct(pct(t.top10s, t.rounds))),
+        el('td', {}, fmtInt(t.kills)),
+        el('td', {}, fmt1(t.losses ? t.kills / t.losses : t.kills)),
+        el('td', {}, fmtInt(t.rounds ? t.damage / t.rounds : 0)),
+        el('td', {}, fmtPct(pct(t.headshots, t.kills))),
+        el('td', {}, `${fmtInt(t.longest)}m`),
+        el('td', {}, fmtInt(t.mostKills)),
+      ]);
+    })),
+  ])));
+  return el('section', { class: 'block' }, card);
 }
 
 // ---------- time-series charts ----------
@@ -908,9 +967,11 @@ function render({ pulse = false } = {}) {
   const prev = previousSlice();
   updateRangeNote(slice);
   const main = document.getElementById('main');
+  const career = renderCareer();
   main.replaceChildren(
     renderKPIs(slice, prev),
     renderPlayers(slice, prev),
+    ...(career ? [career] : []),
     renderCharts(slice),
     renderGuns(slice),
     renderMaps(slice),

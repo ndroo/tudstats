@@ -192,10 +192,19 @@ function parseTelemetry(events, canonicalNames, mapId) {
         if (victim && norm && ev.victim.location) deaths[victim] = norm(ev.victim.location);
         const killer = byLower.get(ev.killer?.name?.toLowerCase());
         if (killer && ev.finishDamageInfo && ev.killer?.teamId !== ev.victim?.teamId) {
-          const w = weaponEntry(killer, ev.finishDamageInfo.damageCauserName || 'Unknown');
+          let info = ev.finishDamageInfo;
+          // Bleed-out finishes are credited to the knocker but recorded with a
+          // player-pawn "weapon" and zero damage; the real weapon is the one
+          // that caused the knock. Keep the pawn only for true melee punches.
+          const pawnFinish = /^(PlayerMale|PlayerFemale|UltAIPawn)/.test(info.damageCauserName || '');
+          if (ev.dBNODamageInfo?.damageCauserName &&
+              (info.damageTypeCategory === 'Damage_Groggy' || (pawnFinish && info.damageTypeCategory !== 'Damage_Melee'))) {
+            info = ev.dBNODamageInfo;
+          }
+          const w = weaponEntry(killer, info.damageCauserName || 'Unknown');
           w.kills += 1;
-          if (ev.finishDamageInfo.damageReason === 'HeadShot') w.headshots += 1;
-          const dist = Math.round((ev.finishDamageInfo.distance || 0) / 100);
+          if (info.damageReason === 'HeadShot') w.headshots += 1;
+          const dist = Math.round((info.distance || 0) / 100);
           if (dist > w.longest) w.longest = dist;
         }
         break;
@@ -264,6 +273,25 @@ for (const id of newIds) {
     console.warn(`Skipping match ${id}: ${err.message}`);
   }
   await sleep(250);
+}
+
+// lifetime career stats (whole PUBG career — the match list above only ever
+// covers the API's 14-day retention window)
+const lifetime = {};
+for (const player of lookup.data) {
+  try {
+    await sleep(6500); // players/seasons endpoints share the 10 req/min budget
+    const res = await get(`${API}/players/${player.id}/seasons/lifetime`);
+    lifetime[player.attributes.name] = res.data.attributes.gameModeStats;
+  } catch (err) {
+    console.warn(`Lifetime stats failed for ${player.attributes.name}: ${err.message}`);
+  }
+}
+if (Object.keys(lifetime).length) {
+  writeFileSync(
+    path.join(dataDir, 'lifetime.json'),
+    JSON.stringify({ fetchedAt: new Date().toISOString(), players: lifetime }) + '\n'
+  );
 }
 
 const merged = [...existing, ...added].sort((a, b) => new Date(b.date) - new Date(a.date));
