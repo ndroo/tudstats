@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TUD STATS — PUBG squad tracker</title>
+  <meta name="description" content="PUBG squad stats for ndroo, Tnak9999 and BLAKKOUT — dinners, damage, guns, heatmaps and the randoms we get filled with.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍗</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site-header">
+      <h1>TUD<span class="accent">STATS</span></h1>
+      <div class="sub" id="header-sub"></div>
+    </header>
+
+    <div class="filters" id="filters"></div>
+
+    <main id="main">
+      <div class="card"><div class="empty">Loading match data…</div></div>
+    </main>
+
+    <footer class="site-footer">
+      Data from the official <a href="https://developer.pubg.com/" rel="noopener">PUBG API</a>, refreshed every 3 hours
+      · map images © KRAFTON via <a href="https://github.com/pubg/api-assets" rel="noopener">pubg/api-assets</a>
+      · replays via <a href="https://pubg.sh" rel="noopener">pubg.sh</a>
+    </footer>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
