@@ -239,7 +239,7 @@ function renderFilters() {
           state.range = r.key;
           for (const b of ev.currentTarget.parentNode.children) b.setAttribute('aria-pressed', 'false');
           ev.currentTarget.setAttribute('aria-pressed', 'true');
-          render();
+          render({ pulse: true });
         },
       }, r.label)
     )
@@ -248,13 +248,25 @@ function renderFilters() {
   const types = [...new Set(ALL.filter((m) => m.isBR).map((m) => m.matchType))];
   const typeSel = el('select', {
     'aria-label': 'Match type',
-    onchange: (ev) => { state.type = ev.currentTarget.value; render(); },
+    onchange: (ev) => { state.type = ev.currentTarget.value; render({ pulse: true }); },
   }, [
     el('option', { value: 'all' }, 'All match types'),
     ...types.map((t) => el('option', { value: t }, TYPE_LABEL[t] || t)),
   ]);
 
-  bar.replaceChildren(rangeSeg, typeSel);
+  bar.replaceChildren(rangeSeg, typeSel, el('span', { class: 'range-note', id: 'range-note', 'aria-live': 'polite' }));
+}
+
+function updateRangeNote(slice) {
+  const note = document.getElementById('range-note');
+  if (!note) return;
+  if (!slice.length) {
+    note.textContent = 'no matches in this range';
+    return;
+  }
+  const from = slice[0].dateObj;
+  const to = slice[slice.length - 1].dateObj;
+  note.textContent = `showing ${slice.length} matches · ${fmtDay(from)} – ${fmtDay(to)}`;
 }
 
 // ---------- KPI row ----------
@@ -750,8 +762,9 @@ function renderMaps(slice) {
   const cssSize = Math.min(680, Math.max(300, (card.clientWidth || document.getElementById('main').clientWidth || 800) - 34));
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const canvas = el('canvas', { width: cssSize * dpr, height: cssSize * dpr, style: `width:${cssSize}px;height:${cssSize}px` });
-  holder.append(canvas);
-  drawMap(canvas, state.mapTab, current, state.mapLayer);
+  const spinner = el('div', { class: 'map-spinner' }, 'loading map…');
+  holder.append(canvas, spinner);
+  drawMap(canvas, state.mapTab, current, state.mapLayer).finally(() => spinner.remove());
 
   // table twin: grid references per match
   const tableWrap = el('div', { class: 'table-scroll chart-table', hidden: '' });
@@ -890,9 +903,10 @@ function renderMatches(slice) {
 
 // ---------- render root ----------
 
-function render() {
+function render({ pulse = false } = {}) {
   const slice = currentSlice();
   const prev = previousSlice();
+  updateRangeNote(slice);
   const main = document.getElementById('main');
   main.replaceChildren(
     renderKPIs(slice, prev),
@@ -903,6 +917,11 @@ function render() {
     renderFills(slice),
     renderMatches(slice)
   );
+  // visible confirmation that the filter applied, even when the numbers
+  // happen to be identical across ranges
+  if (pulse && main.animate) {
+    main.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
+  }
 }
 
 let resizeTimer = null;

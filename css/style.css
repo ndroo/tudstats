@@ -88,6 +88,8 @@ body {
   background: var(--surface); color: var(--ink-2); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px;
 }
+.range-note { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+@media (max-width: 700px) { .range-note { flex-basis: 100%; margin-left: 2px; } }
 
 /* ---------- KPI row ---------- */
 
@@ -270,8 +272,18 @@ table.data tr:last-child td { border-bottom: 0; }
 .map-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 10px; }
 .map-controls .table-toggle { margin-left: auto; }
 .map-tabs { flex-wrap: wrap; }
-.map-holder { display: flex; justify-content: center; }
+.map-holder { display: flex; justify-content: center; position: relative; }
 .map-holder canvas { border-radius: 8px; border: 1px solid var(--border); max-width: 100%; }
+.map-spinner {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 12.5px; gap: 8px;
+}
+.map-spinner::before {
+  content: ""; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--baseline); border-top-color: var(--v-top10);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .heat-legend .ramp {
   width: 120px; height: 8px; border-radius: 4px;
   background: linear-gradient(90deg, rgba(106,90,208,0), #6a5ad0, #9085e9, #b7aef2, #ece8ff);
